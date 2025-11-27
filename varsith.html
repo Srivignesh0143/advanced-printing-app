@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Advanced Print&Pay Service with Multi-Pay</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Montserrat', Arial, sans-serif;
+      background: linear-gradient(120deg, #5576ff 0%, #3cc5fa 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 8px 36px rgba(85,118,255,0.14), 0 2px 8px rgba(60,197,250,0.08);
+      max-width: 440px;
+      width: 100%;
+      padding: 40px 32px 32px 32px;
+      margin: 18px;
+      text-align: center;
+      animation: fadeIn 1.2s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(40px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    h2 {
+      font-weight: 700;
+      color: #5576ff;
+      margin-bottom: 20px;
+      letter-spacing: 0.7px;
+    }
+    input[type="file"] {
+      display: block;
+      width: 98%;
+      margin: 18px 0 24px 0;
+      border: 1.5px solid #cdd7ff;
+      border-radius: 13px;
+      padding: 8px;
+      font-size: 14px;
+      transition: border 0.2s;
+      background: #f5f8ff;
+    }
+    input[type="file"]:focus {
+      border: 2px solid #5576ff;
+      background: #e6eeff;
+    }
+    .print-type {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .type-option {
+      border: 2px solid #cdd7ff;
+      background: #f9faff;
+      border-radius: 11px;
+      padding: 14px 22px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .type-option.selected, .type-option:hover {
+      border: 2px solid #5576ff;
+      background: #e2e9ff;
+      color: #5576ff;
+    }
+    input[type="number"] {
+      width: 60px;
+      padding: 7px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1.2px solid #cdd7ff;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-left: 10px;
+      margin-right: 5px;
+    }
+    input[type="number"]:focus {
+      border-color: #5576ff;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin: 22px 0 8px 0;
+      border: none;
+      border-radius: 13px;
+      background: linear-gradient(90deg,#5576ff 30%, #3cc5fa 100%);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(85,118,255,0.09);
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: 0.3px;
+    }
+    button:hover {
+      background: linear-gradient(90deg,#4056b3 50%, #1a94c7 100%);
+    }
+    #status, #paymentStatus {
+      color: #109648;
+      margin-top: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      min-height: 22px;
+      transition: color 0.2s;
+    }
+    #paymentSection {
+      display: none;
+      margin-top: 36px;
+    }
+    .amount {
+      font-size: 21px;
+      font-weight: 700;
+      color: #5576ff;
+      margin: 20px 0 13px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Upload Document for Self-Printing</h2>
+    <form id="uploadForm">
+      <input type="file" id="printFile" name="printFile" accept=".pdf,.jpg,.png,.jpeg,.doc,.docx" required />
+      <div class="print-type">
+        <div class="type-option selected" id="colorOption" onclick="selectType('color')">
+          Colour<br/>(3 rupees per page)
+        </div>
+        <div class="type-option" id="bwOption" onclick="selectType('bw')">
+          Black & White<br/>(2 rupees per page)
+        </div>
+      </div>
+      <label for="numPages" style="font-weight:600; font-size: 16px; color: #000;">Pages: </label>
+      <input type="number" id="numPages" name="numPages" min="1" max="200" value="1" />
+      <button type="submit">Upload & Continue</button>
+    </form>
+    <div id="status"></div>
+
+    <div id="paymentSection">
+      <h2>Complete Your Payment</h2>
+      <div class="amount" id="amtDisplay"></div>
+      <button id="payBtn">Pay Now</button>
+      <div id="paymentStatus"></div>
+    </div>
+  </div>
+
+  <!-- Razorpay Checkout script -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    let printType = "color";
+    function selectType(type) {
+      printType = type;
+      document.getElementById('colorOption').classList.remove('selected');
+      document.getElementById('bwOption').classList.remove('selected');
+      if (type === 'color') {
+        document.getElementById('colorOption').classList.add('selected');
+      } else {
+        document.getElementById('bwOption').classList.add('selected');
+      }
+      updateAmount();
+    }
+
+    function updateAmount() {
+      const numPages = Number(document.getElementById('numPages').value) || 1;
+      let amt = printType === "color" ? 3 * numPages : 2 * numPages;
+      document.getElementById('amtDisplay').innerText = `Amount: ${Math.floor(amt)} rupees`;
+      return Math.floor(amt) * 100;  // Razorpay amount is in paise
+    }
+
+    document.getElementById('numPages').addEventListener('input', () => {
+      updateAmount();
+    });
+
+    document.getElementById('uploadForm').onsubmit = function (e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('printFile');
+      if (!fileInput.files.length) {
+        alert("Please select a file.");
+        return;
+      }
+      document.getElementById('status').innerText = "File uploaded successfully!";
+      updateAmount();
+      setTimeout(() => {
+        document.getElementById('paymentSection').style.display = 'block';
+      }, 800);
+    };
+
+    document.getElementById('payBtn').onclick = function () {
+      var amountInPaise = updateAmount();
+      var options = {
+        "key": "YOUR_RAZORPAY_KEY",  // Enter the Key ID generated from Razorpay Dashboard
+        "amount": amountInPaise, // Amount is in paise, so multiply by 100
+        "currency": "INR",
+        "name": "Print&Pay Service",
+        "description": "Print payment",
+        "handler": function (response) {
+          document.getElementById('paymentStatus').innerText = "Payment Successful! Your payment id: " + response.razorpay_payment_id;
+          // You can call your backend here to verify payment and start printing process
+        },
+        "prefill": {
+          "name": "",
+          "email": "",
+          "contact": ""
+        },
+        "theme": {
+          "color": "#5576ff"
+        }
+      };
+      var rzp1 = new Razorpay(options);
+      rzp1.open();
+    };
+  </script>
+</body>
+</html>
